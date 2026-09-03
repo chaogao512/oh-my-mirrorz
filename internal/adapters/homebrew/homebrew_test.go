@@ -44,6 +44,13 @@ func TestPlanReplacesDuplicateManagedBlocksAndPreservesUserValues(t *testing.T) 
 func TestBrewGitRemoteRequiresExplicitAdapterOptIn(t *testing.T) {
 	root := t.TempDir()
 	env := model.Environment{Home: root, XDGConfigHome: filepath.Join(root, "config")}
+	config := filepath.Join(env.XDGConfigHome, "homebrew", "brew.env")
+	if err := os.MkdirAll(filepath.Dir(config), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(config, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	selection := model.Selection{Endpoints: map[string]string{"brew_git": "https://mirror.example/brew.git", "api": "https://mirror.example/api", "bottles": "https://mirror.example/bottles", "pypi": "https://mirror.example/pypi"}}
 	changes, err := New(WithBrewGitRemote(true)).Plan(context.Background(), env, selection)
 	if err != nil {
