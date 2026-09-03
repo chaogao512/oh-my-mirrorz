@@ -1,6 +1,6 @@
 # oh-my-mirrorz V0.1.0 设计规格
 
-- 状态：已获用户原则批准，等待书面规格复核
+- 状态：已批准并完成 V0.1.0 实施；Homebrew 边界含实施期安全修订
 - 日期：2026-09-03
 - 项目目录：`/Users/chao/Documents/Skill Factory/oh-my-mirrorz`
 - GitHub 目标：公开仓库 `chaogao512/oh-my-mirrorz`
@@ -262,7 +262,11 @@ Homebrew 作为一个逻辑适配器管理：
 # <<< oh-my-mirrorz managed block <<<
 ```
 
-适配器支持 zsh 与 bash。若发现 fish 或其他 Shell，仅报告 unsupported，不猜测配置文件。恢复时只移除或复原托管块，不删除用户其他环境变量。
+实施采用 Homebrew 原生 `brew.env`，不改写 `.zprofile`、`.bash_profile` 或其他 Shell 启动文件，因此可独立于 zsh、bash、fish 工作。恢复时只移除或复原托管块，不删除用户其他环境变量。
+
+#### V0.1 实施期安全修订
+
+独立复核确认：`HOMEBREW_BREW_GIT_REMOTE` 与 `HOMEBREW_CORE_GIT_REMOTE` 可能在后续 `brew update` 时改变 Homebrew 仓库的真实 Git origin，仅恢复 `brew.env` 不能保证恢复该隐藏状态。为维持 V0.1“全部已应用变更均可由文件快照完整恢复”的不变量，正式 CLI 只管理 `HOMEBREW_API_DOMAIN`、`HOMEBREW_BOTTLE_DOMAIN` 与 `HOMEBREW_PIP_INDEX_URL`，暂不设置两个 Git remote 变量。适配器保留显式内部开关供后续实现 adapter-aware remote 快照与恢复后启用。
 
 ## 8. 文件与状态存储
 

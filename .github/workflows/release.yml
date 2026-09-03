@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - run: go test ./...
+      - run: go test -race ./...
+      - run: go vet ./...
+
+  build:
+    needs: verify
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+            osname: Darwin
+            archname: x86_64
+          - goos: darwin
+            goarch: arm64
+            osname: Darwin
+            archname: arm64
+          - goos: linux
+            goarch: amd64
+            osname: Linux
+            archname: x86_64
+          - goos: linux
+            goarch: arm64
+            osname: Linux
+            archname: arm64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - name: Build archive
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          name="oh-my-mirrorz_${{ matrix.osname }}_${{ matrix.archname }}"
+          mkdir -p "dist/${name}"
+          go build -trimpath -ldflags "-s -w -X github.com/chaogao512/oh-my-mirrorz/internal/version.Version=${GITHUB_REF_NAME} -X github.com/chaogao512/oh-my-mirrorz/internal/version.Commit=${GITHUB_SHA} -X github.com/chaogao512/oh-my-mirrorz/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" -o "dist/${name}/omm" ./cmd/omm
+          cp LICENSE README.md "dist/${name}/"
+          tar -C dist -czf "dist/${name}.tar.gz" "${name}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - run: cd dist && sha256sum *.tar.gz > checksums.txt
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/*.tar.gz dist/checksums.txt --repo "$GITHUB_REPOSITORY" --generate-notes --verify-tag
