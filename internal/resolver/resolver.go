@@ -41,6 +41,7 @@ func BuiltInCatalog() *Catalog {
 			"debian":          "https://mirrors.cernet.edu.cn/api/apt/mirrorlist/debian",
 			"debian-security": "https://mirrors.cernet.edu.cn/api/apt/mirrorlist/debian-security",
 		}, Reason: "MirrorZ ordered APT mirrorlist"},
+		{AdapterID: "conda", Mirror: "auto", Endpoint: "https://mirrors.cernet.edu.cn/anaconda", Reason: "MirrorZ repository-aware redirect"},
 		{AdapterID: "pypi", Mirror: "tuna", Endpoint: "https://pypi.tuna.tsinghua.edu.cn/simple", Reason: "fixed TUNA endpoint"},
 		{AdapterID: "pypi", Mirror: "ustc", Endpoint: "https://mirrors.ustc.edu.cn/pypi/web/simple", Reason: "fixed USTC endpoint"},
 		{AdapterID: "npm", Mirror: "npmmirror", Endpoint: "https://registry.npmmirror.com/", Reason: "fixed npmmirror endpoint"},
@@ -71,6 +72,8 @@ func BuiltInCatalog() *Catalog {
 			"debian":          "https://mirrors.ustc.edu.cn/debian/",
 			"debian-security": "https://mirrors.ustc.edu.cn/debian-security/",
 		}, Reason: "fixed USTC endpoints"},
+		{AdapterID: "conda", Mirror: "tuna", Endpoint: "https://mirrors.tuna.tsinghua.edu.cn/anaconda", Reason: "fixed TUNA endpoint"},
+		{AdapterID: "conda", Mirror: "ustc", Endpoint: "https://mirrors.ustc.edu.cn/anaconda", Reason: "fixed USTC endpoint"},
 	}}
 }
 
@@ -84,6 +87,20 @@ func (c *Catalog) Mirrors(adapterID string) []string {
 		}
 	}
 	sort.Strings(result)
+	return result
+}
+
+// Providers returns a defensive copy of the configured providers for one
+// adapter. The benchmark engine uses the same catalog as switch resolution.
+func (c *Catalog) Providers(adapterID string) []Provider {
+	var result []Provider
+	for _, provider := range c.providers {
+		if provider.AdapterID != adapterID {
+			continue
+		}
+		provider.Endpoints = cloneMap(provider.Endpoints)
+		result = append(result, provider)
+	}
 	return result
 }
 
@@ -131,12 +148,37 @@ func (r *Resolver) Resolve(adapterID string, strategy model.Strategy, mirror str
 	if err := validateProvider(provider, r.AllowPrivate); err != nil {
 		return model.Selection{}, err
 	}
+	return r.selection(provider, strategy), nil
+}
+
+// Candidates returns every catalog-backed candidate using the exact same URL
+// validation as Resolve. Auto remains dynamic; named candidates are fixed.
+func (r *Resolver) Candidates(adapterID string) ([]model.Selection, error) {
+	if r.Catalog == nil {
+		return nil, fmt.Errorf("resolver catalog is nil")
+	}
+	providers := r.Catalog.Providers(adapterID)
+	result := make([]model.Selection, 0, len(providers))
+	for _, provider := range providers {
+		if err := validateProvider(provider, r.AllowPrivate); err != nil {
+			return nil, err
+		}
+		strategy := model.StrategyFixed
+		if provider.Mirror == "auto" {
+			strategy = model.StrategyAuto
+		}
+		result = append(result, r.selection(provider, strategy))
+	}
+	return result, nil
+}
+
+func (r *Resolver) selection(provider Provider, strategy model.Strategy) model.Selection {
 	clock := r.Clock
 	if clock == nil {
 		clock = time.Now
 	}
 	return model.Selection{
-		AdapterID:  adapterID,
+		AdapterID:  provider.AdapterID,
 		Provider:   provider.Mirror,
 		Mirror:     provider.Mirror,
 		Endpoint:   provider.Endpoint,
@@ -144,7 +186,7 @@ func (r *Resolver) Resolve(adapterID string, strategy model.Strategy, mirror str
 		Strategy:   strategy,
 		Reason:     provider.Reason,
 		ResolvedAt: clock().UTC(),
-	}, nil
+	}
 }
 
 func (r *Resolver) lookup(adapterID, mirror string) (Provider, bool) {
@@ -193,11 +235,12 @@ type Prober interface {
 }
 
 type HTTPProber struct {
-	Client *http.Client
+	Client       *http.Client
+	AllowPrivate bool
 }
 
 func (p HTTPProber) Probe(ctx context.Context, endpoint string) (ProbeResult, error) {
-	if err := safeurl.Validate(endpoint, false); err != nil {
+	if err := safeurl.Validate(endpoint, p.AllowPrivate); err != nil {
 		return ProbeResult{}, err
 	}
 	client := p.Client
@@ -209,7 +252,7 @@ func (p HTTPProber) Probe(ctx context.Context, endpoint string) (ProbeResult, er
 	if err != nil {
 		return ProbeResult{}, err
 	}
-	req.Header.Set("User-Agent", "oh-my-mirrorz/0.1")
+	req.Header.Set("User-Agent", "oh-my-mirrorz/0.2")
 	start := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
@@ -222,7 +265,7 @@ func (p HTTPProber) Probe(ctx context.Context, endpoint string) (ProbeResult, er
 			return ProbeResult{}, err
 		}
 		req.Header.Set("Range", "bytes=0-0")
-		req.Header.Set("User-Agent", "oh-my-mirrorz/0.1")
+		req.Header.Set("User-Agent", "oh-my-mirrorz/0.2")
 		resp, err = client.Do(req)
 		if err != nil {
 			return ProbeResult{}, err

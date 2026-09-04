@@ -17,6 +17,9 @@ func (f fakeAdapter) Inspect(context.Context, model.Environment) ([]byte, error)
 func (f fakeAdapter) Plan(context.Context, model.Environment, model.Selection) ([]model.Change, error) {
 	return nil, nil
 }
+func (f fakeAdapter) ProbeTargets(model.Environment, model.Selection) ([]model.ProbeTarget, error) {
+	return nil, nil
+}
 func (f fakeAdapter) Verify(context.Context, model.Environment, model.Selection) model.Verification {
 	return model.Verification{AdapterID: string(f), OK: true}
 }

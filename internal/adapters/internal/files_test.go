@@ -13,7 +13,7 @@ func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) 
 
 func TestVerifyEndpointFallsBackFromForbiddenHead(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		if r.Header.Get("User-Agent") != "oh-my-mirrorz/0.1" {
+		if r.Header.Get("User-Agent") != "oh-my-mirrorz/0.2" {
 			t.Errorf("unexpected user agent %q", r.Header.Get("User-Agent"))
 		}
 		if r.Method == http.MethodHead {

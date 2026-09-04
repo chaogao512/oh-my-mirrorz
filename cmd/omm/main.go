@@ -6,19 +6,21 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/chaogao512/oh-my-mirrorz/internal/adapters"
 	"github.com/chaogao512/oh-my-mirrorz/internal/adapters/apt"
 	"github.com/chaogao512/oh-my-mirrorz/internal/adapters/cargo"
+	"github.com/chaogao512/oh-my-mirrorz/internal/adapters/conda"
 	"github.com/chaogao512/oh-my-mirrorz/internal/adapters/homebrew"
 	"github.com/chaogao512/oh-my-mirrorz/internal/adapters/npm"
 	"github.com/chaogao512/oh-my-mirrorz/internal/adapters/pypi"
 	appcore "github.com/chaogao512/oh-my-mirrorz/internal/app"
+	benchmarkcore "github.com/chaogao512/oh-my-mirrorz/internal/benchmark"
 	"github.com/chaogao512/oh-my-mirrorz/internal/model"
 	"github.com/chaogao512/oh-my-mirrorz/internal/resolver"
 	"github.com/chaogao512/oh-my-mirrorz/internal/runtimeenv"
@@ -35,7 +37,7 @@ Usage:
   omm switch [--dry-run] [--strategy auto|fixed|prefer] [--mirror NAME]
   omm status
   omm mirrors
-  omm benchmark
+  omm benchmark [--adapter NAME] [--runs N]
   omm history
   omm restore [SNAPSHOT-ID]
   omm doctor
@@ -43,6 +45,8 @@ Usage:
 
 Run "omm <command> -h" for command options.
 `
+
+var adapterIDs = []string{"pypi", "npm", "cargo", "homebrew", "apt", "conda"}
 
 func main() {
 	os.Exit(run(context.Background(), os.Args[1:]))
@@ -91,11 +95,13 @@ func newApp(includeSystem, includeSecurity, allowPrivate bool) (*appcore.App, er
 		cargo.New(cargo.WithHTTPClient(client), cargo.WithNetworkVerification(true)),
 		homebrew.New(homebrew.WithHTTPClient(client), homebrew.WithNetworkVerification(true)),
 		apt.New(apt.WithHTTPClient(client), apt.WithNetworkVerification(true)),
+		conda.New(conda.WithHTTPClient(client), conda.WithNetworkVerification(true)),
 	)
 	return &appcore.App{
 		Env:      env,
 		Registry: registry,
 		Resolver: r,
+		Prober:   resolver.HTTPProber{Client: client, AllowPrivate: allowPrivate},
 		Store:    state.New(filepath.Join(env.XDGStateHome, "oh-my-mirrorz")),
 		Writer:   transaction.PrivilegedWriter{SystemRoot: env.SystemRoot},
 		Out:      os.Stdout,
@@ -229,14 +235,13 @@ func runMirrors(args []string) int {
 	}
 	*adapterID = normalizeAdapterID(*adapterID)
 	if *adapterID != "" {
-		known := map[string]bool{"pypi": true, "npm": true, "cargo": true, "homebrew": true, "apt": true}
+		known := knownAdapters()
 		if !known[*adapterID] {
 			return printError(fmt.Errorf("unknown adapter %q", *adapterID))
 		}
 	}
 	catalog := resolver.BuiltInCatalog()
-	ids := []string{"pypi", "npm", "cargo", "homebrew", "apt"}
-	for _, id := range ids {
+	for _, id := range adapterIDs {
 		if *adapterID != "" && id != *adapterID {
 			continue
 		}
@@ -247,63 +252,71 @@ func runMirrors(args []string) int {
 
 func runBenchmark(ctx context.Context, args []string) int {
 	flags := flag.NewFlagSet("benchmark", flag.ContinueOnError)
+	adapterID := flags.String("adapter", "", "limit to one adapter")
+	runs := flags.Int("runs", 3, "number of probes per candidate")
 	if err := flags.Parse(args); err != nil {
 		return 2
 	}
 	if flags.NArg() != 0 {
 		return printError(fmt.Errorf("benchmark accepts no positional arguments"))
 	}
-	client := safeHTTPClient(false)
-	client.Timeout = 8 * time.Second
-	prober := resolver.HTTPProber{Client: client}
-	r := resolver.New()
-	for _, id := range []string{"pypi", "npm", "cargo", "homebrew", "apt"} {
-		selection, err := r.Resolve(id, model.StrategyAuto, "")
+	if *runs < 1 || *runs > 10 {
+		return printError(fmt.Errorf("--runs must be between 1 and 10"))
+	}
+	*adapterID = normalizeAdapterID(*adapterID)
+	if *adapterID != "" && !knownAdapters()[*adapterID] {
+		return printError(fmt.Errorf("unknown adapter %q", *adapterID))
+	}
+	app, err := newApp(false, false, false)
+	if err != nil {
+		return printError(err)
+	}
+	engine := benchmarkcore.Engine{Prober: app.Prober, Runs: *runs}
+	fmt.Printf("%-10s %-16s %-11s %-30s %-9s %-8s %s\n", "ADAPTER", "REPOSITORY", "CANDIDATE", "FINAL TARGET", "MEDIAN", "SUCCESS", "RESULT")
+	for _, id := range adapterIDs {
+		if *adapterID != "" && id != *adapterID {
+			continue
+		}
+		adapter, ok := app.Registry.Get(id)
+		if !ok {
+			continue
+		}
+		candidates, err := app.Resolver.Candidates(id)
 		if err != nil {
 			fmt.Printf("%-10s unavailable: %v\n", id, err)
 			continue
 		}
-		endpoints := benchmarkURLs(id, selection)
-		best := time.Duration(1<<63 - 1)
-		var failed int
-		var lastErr error
-		for _, endpoint := range endpoints {
-			result, err := prober.Probe(ctx, endpoint)
-			if err != nil {
-				failed++
-				lastErr = err
-				continue
-			}
-			if result.Latency < best {
-				best = result.Latency
-			}
+		rows, err := engine.Run(ctx, app.Env, adapter, candidates)
+		if err != nil {
+			fmt.Printf("%-10s unavailable: %v\n", id, err)
+			continue
 		}
-		if failed == len(endpoints) {
-			fmt.Printf("%-10s unreachable: %v\n", id, lastErr)
-		} else {
-			fmt.Printf("%-10s %s (%d/%d probes passed)\n", id, best.Round(time.Millisecond), len(endpoints)-failed, len(endpoints))
+		if len(rows) == 0 {
+			fmt.Printf("%-10s no public repository is active in the current configuration\n", id)
+			continue
+		}
+		for _, row := range rows {
+			result := "healthy"
+			if row.Success == 0 {
+				result = "unreachable"
+			} else if row.Success < row.Runs {
+				result = "degraded"
+			} else if row.Fastest && row.Candidate == "auto" {
+				result = "fastest (dynamic)"
+			} else if row.Fastest {
+				result = "fastest (sample)"
+			} else if row.Candidate == "auto" {
+				result = "dynamic"
+			}
+			latency := "-"
+			if row.Median > 0 {
+				latency = row.Median.Round(time.Millisecond).String()
+			}
+			fmt.Printf("%-10s %-16s %-11s %-30s %-9s %d/%-6d %s\n", row.AdapterID, row.Capability, row.Candidate, finalTarget(row.FinalURL), latency, row.Success, row.Runs, result)
 		}
 	}
+	fmt.Println("Note: fastest (sample) means the lowest median response latency in this run, not guaranteed download throughput.")
 	return 0
-}
-
-func benchmarkURLs(adapterID string, selection model.Selection) []string {
-	urls := selectionURLs(selection)
-	switch adapterID {
-	case "pypi":
-		if len(urls) > 0 {
-			return []string{strings.TrimRight(urls[0], "/") + "/pip/"}
-		}
-	case "cargo":
-		if len(urls) > 0 {
-			return []string{strings.TrimRight(urls[0], "/") + "/config.json"}
-		}
-	case "homebrew":
-		if endpoint := selection.Endpoints["api"]; endpoint != "" {
-			return []string{strings.TrimRight(endpoint, "/") + "/formula.jws.json"}
-		}
-	}
-	return urls
 }
 
 func runHistory(args []string) int {
@@ -375,20 +388,23 @@ func runDoctor(ctx context.Context, args []string) int {
 	return 0
 }
 
-func selectionURLs(selection model.Selection) []string {
-	var result []string
-	if selection.Endpoint != "" {
-		result = append(result, selection.Endpoint)
-	}
-	keys := make([]string, 0, len(selection.Endpoints))
-	for key := range selection.Endpoints {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		result = append(result, selection.Endpoints[key])
+func knownAdapters() map[string]bool {
+	result := make(map[string]bool, len(adapterIDs))
+	for _, id := range adapterIDs {
+		result[id] = true
 	}
 	return result
+}
+
+func finalTarget(value string) string {
+	if value == "" {
+		return "-"
+	}
+	parsed, err := url.Parse(value)
+	if err == nil && parsed.Hostname() != "" {
+		return parsed.Hostname()
+	}
+	return safeurl.Redact(value)
 }
 
 func splitList(value string) []string {
@@ -411,6 +427,8 @@ func normalizeAdapterID(id string) string {
 		return "pypi"
 	case "brew", "homebrew":
 		return "homebrew"
+	case "conda", "mamba", "micromamba":
+		return "conda"
 	default:
 		return strings.ToLower(strings.TrimSpace(id))
 	}

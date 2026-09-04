@@ -11,6 +11,7 @@ type Adapter interface {
 	Detect(context.Context, model.Environment) model.Detection
 	Inspect(context.Context, model.Environment) ([]byte, error)
 	Plan(context.Context, model.Environment, model.Selection) ([]model.Change, error)
+	ProbeTargets(model.Environment, model.Selection) ([]model.ProbeTarget, error)
 	Verify(context.Context, model.Environment, model.Selection) model.Verification
 }
 

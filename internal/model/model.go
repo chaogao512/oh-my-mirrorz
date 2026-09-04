@@ -96,21 +96,31 @@ type Verification struct {
 	Detail    string `json:"detail"`
 }
 
+// ProbeTarget describes one low-cost, protocol-aware endpoint check. Adapter
+// implementations define what constitutes a representative request while the
+// app and benchmark engine own probing, ranking, and presentation.
+type ProbeTarget struct {
+	Capability string `json:"capability"`
+	URL        string `json:"url"`
+	Rankable   bool   `json:"rankable"`
+}
+
 type Environment struct {
-	Home               string
-	XDGConfigHome      string
-	XDGStateHome       string
-	XDGCacheHome       string
-	CargoHome          string
-	HomebrewConfigHome string
-	Shell              string
-	GOOS               string
-	GOARCH             string
-	SystemRoot         string
-	IncludeSystem      bool
-	IncludeSecurity    bool
-	PipConfigOverride  bool
-	PipIndexOverride   bool
-	UVIndexOverride    bool
-	NPMConfigOverride  bool
+	Home                string
+	XDGConfigHome       string
+	XDGStateHome        string
+	XDGCacheHome        string
+	CargoHome           string
+	HomebrewConfigHome  string
+	Shell               string
+	GOOS                string
+	GOARCH              string
+	SystemRoot          string
+	IncludeSystem       bool
+	IncludeSecurity     bool
+	PipConfigOverride   bool
+	PipIndexOverride    bool
+	UVIndexOverride     bool
+	NPMConfigOverride   bool
+	CondaConfigOverride bool
 }

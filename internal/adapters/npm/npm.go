@@ -88,6 +88,14 @@ func (a *Adapter) Plan(_ context.Context, env model.Environment, selection model
 	return []model.Change{change}, nil
 }
 
+func (a *Adapter) ProbeTargets(_ model.Environment, selection model.Selection) ([]model.ProbeTarget, error) {
+	value, err := endpoint(selection)
+	if err != nil {
+		return nil, err
+	}
+	return []model.ProbeTarget{{Capability: "registry", URL: strings.TrimRight(value, "/") + "/-/ping", Rankable: true}}, nil
+}
+
 func setRegistry(before []byte, registry string) []byte {
 	if len(before) == 0 {
 		return []byte("registry=" + registry + "\n")
@@ -142,7 +150,7 @@ func verifyPing(client *http.Client, registry string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "oh-my-mirrorz/0.1")
+	req.Header.Set("User-Agent", "oh-my-mirrorz/0.2")
 	resp, err := client.Do(req)
 	if err != nil {
 		return err

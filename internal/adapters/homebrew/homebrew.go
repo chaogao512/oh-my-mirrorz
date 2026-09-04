@@ -141,6 +141,26 @@ func (a *Adapter) Plan(_ context.Context, env model.Environment, selection model
 	return []model.Change{change}, nil
 }
 
+func (a *Adapter) ProbeTargets(_ model.Environment, selection model.Selection) ([]model.ProbeTarget, error) {
+	api, err := selected(selection, "api")
+	if err != nil {
+		return nil, err
+	}
+	bottles, err := selected(selection, "bottle")
+	if err != nil {
+		return nil, err
+	}
+	pip, err := selected(selection, "pip")
+	if err != nil {
+		return nil, err
+	}
+	return []model.ProbeTarget{
+		{Capability: "api", URL: strings.TrimRight(api, "/") + "/formula.jws.json", Rankable: true},
+		{Capability: "bottles", URL: strings.TrimRight(bottles, "/") + "/", Rankable: true},
+		{Capability: "build-pypi", URL: strings.TrimRight(pip, "/") + "/pip/", Rankable: true},
+	}, nil
+}
+
 func block(values map[string]string) string {
 	// brew.env is parsed as literal KEY=VALUE lines by Homebrew's launcher;
 	// shell quotes would become part of the endpoint value.

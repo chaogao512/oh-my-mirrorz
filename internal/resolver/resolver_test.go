@@ -58,9 +58,19 @@ func TestMirrorsAreStableAndUnique(t *testing.T) {
 	}
 }
 
+func TestCondaCandidatesShareTheCatalog(t *testing.T) {
+	candidates, err := New().Candidates("conda")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(candidates) != 3 || candidates[0].Mirror != "auto" || candidates[1].Mirror != "tuna" || candidates[2].Mirror != "ustc" {
+		t.Fatalf("unexpected candidates: %#v", candidates)
+	}
+}
+
 func TestHTTPProberUsesBoundedGetFallback(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		if r.Header.Get("User-Agent") != "oh-my-mirrorz/0.1" {
+		if r.Header.Get("User-Agent") != "oh-my-mirrorz/0.2" {
 			t.Errorf("unexpected user agent %q", r.Header.Get("User-Agent"))
 		}
 		if r.Method == http.MethodHead {

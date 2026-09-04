@@ -42,21 +42,34 @@ func FromHome(home string, includeSystem, includeSecurity bool) model.Environmen
 		homebrewConfig = filepath.Join(home, ".homebrew")
 	}
 	return model.Environment{
-		Home:               home,
-		XDGConfigHome:      config,
-		XDGStateHome:       state,
-		XDGCacheHome:       cache,
-		CargoHome:          cargo,
-		HomebrewConfigHome: homebrewConfig,
-		Shell:              os.Getenv("SHELL"),
-		GOOS:               runtime.GOOS,
-		GOARCH:             runtime.GOARCH,
-		SystemRoot:         "/",
-		IncludeSystem:      includeSystem,
-		IncludeSecurity:    includeSecurity,
-		PipConfigOverride:  os.Getenv("PIP_CONFIG_FILE") != "",
-		PipIndexOverride:   os.Getenv("PIP_INDEX_URL") != "",
-		UVIndexOverride:    os.Getenv("UV_DEFAULT_INDEX") != "" || os.Getenv("UV_INDEX_URL") != "",
-		NPMConfigOverride:  os.Getenv("NPM_CONFIG_USERCONFIG") != "" || os.Getenv("NPM_CONFIG_REGISTRY") != "",
+		Home:                home,
+		XDGConfigHome:       config,
+		XDGStateHome:        state,
+		XDGCacheHome:        cache,
+		CargoHome:           cargo,
+		HomebrewConfigHome:  homebrewConfig,
+		Shell:               os.Getenv("SHELL"),
+		GOOS:                runtime.GOOS,
+		GOARCH:              runtime.GOARCH,
+		SystemRoot:          "/",
+		IncludeSystem:       includeSystem,
+		IncludeSecurity:     includeSecurity,
+		PipConfigOverride:   os.Getenv("PIP_CONFIG_FILE") != "",
+		PipIndexOverride:    os.Getenv("PIP_INDEX_URL") != "",
+		UVIndexOverride:     os.Getenv("UV_DEFAULT_INDEX") != "" || os.Getenv("UV_INDEX_URL") != "",
+		NPMConfigOverride:   os.Getenv("NPM_CONFIG_USERCONFIG") != "" || os.Getenv("NPM_CONFIG_REGISTRY") != "",
+		CondaConfigOverride: condaConfigOverride(),
 	}
+}
+
+func condaConfigOverride() bool {
+	for _, key := range []string{
+		"CONDARC", "MAMBARC", "CONDA_CHANNELS", "CONDA_DEFAULT_CHANNELS",
+		"CONDA_CUSTOM_CHANNELS", "CONDA_CHANNEL_ALIAS", "MAMBA_CHANNELS",
+	} {
+		if os.Getenv(key) != "" {
+			return true
+		}
+	}
+	return false
 }

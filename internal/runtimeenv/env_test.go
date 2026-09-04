@@ -38,3 +38,11 @@ func TestFromHomeHonorsHomebrewXDGPrecedence(t *testing.T) {
 		t.Fatalf("XDG_CONFIG_HOME did not take priority: %s", env.HomebrewConfigHome)
 	}
 }
+
+func TestFromHomeDetectsCondaChannelOverrides(t *testing.T) {
+	t.Setenv("CONDA_CHANNELS", "conda-forge")
+	env := FromHome(t.TempDir(), false, false)
+	if !env.CondaConfigOverride {
+		t.Fatal("expected Conda channel override")
+	}
+}

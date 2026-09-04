@@ -134,6 +134,14 @@ func (a *Adapter) Plan(_ context.Context, env model.Environment, selection model
 	return []model.Change{change}, nil
 }
 
+func (a *Adapter) ProbeTargets(_ model.Environment, selection model.Selection) ([]model.ProbeTarget, error) {
+	value, err := endpoint(selection)
+	if err != nil {
+		return nil, err
+	}
+	return []model.ProbeTarget{{Capability: "sparse-index", URL: strings.TrimRight(value, "/") + "/config.json", Rankable: true}}, nil
+}
+
 func getSectionKey(b []byte, section, key string) (string, bool) {
 	in := false
 	for _, line := range strings.Split(string(b), "\n") {

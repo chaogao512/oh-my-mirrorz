@@ -165,6 +165,14 @@ func (a *Adapter) Plan(_ context.Context, env model.Environment, selection model
 	return changes, nil
 }
 
+func (a *Adapter) ProbeTargets(_ model.Environment, selection model.Selection) ([]model.ProbeTarget, error) {
+	value, err := endpoint(selection, "pypi", "pip", "uv")
+	if err != nil {
+		return nil, err
+	}
+	return []model.ProbeTarget{{Capability: "simple", URL: strings.TrimRight(value, "/") + "/pip/", Rankable: true}}, nil
+}
+
 func setPipIndex(before []byte, endpoint string) ([]byte, error) {
 	lines := strings.Split(strings.TrimSuffix(string(before), "\n"), "\n")
 	if len(before) == 0 {

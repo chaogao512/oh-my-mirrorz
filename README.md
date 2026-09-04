@@ -74,7 +74,7 @@ omm restore
 
 ## 为什么做这个工具
 
-单独修改 pip、npm、Cargo、Homebrew 和 APT 并不难，难的是知道哪些配置真正生效、哪些字段不该碰，以及失败后如何可靠回到原状。
+单独修改 pip、npm、Cargo、Homebrew、APT 和 Conda 并不难，难的是知道哪些配置真正生效、哪些字段不该碰，以及失败后如何可靠回到原状。
 
 `oh-my-mirrorz` 把换源变成一个可审查的事务：扫描当前环境，为每个软件生态选择合法入口，展示写入计划，保存原始快照，再应用并验证。任何适配器失败，已执行的变更都会按逆序回滚。
 
@@ -91,8 +91,9 @@ omm restore
 | Cargo | 用户级 | MirrorZ / CERNET sparse index | 不覆盖项目级或已有自定义 `replace-with` |
 | Homebrew | 用户级 `brew.env` | MirrorZ / CERNET API、bottles、构建用 PyPI | 不修改 Brew/Core Git remote |
 | APT | Debian / Ubuntu 系统级 | MirrorZ APT mirrorlist | 需显式 `--system`；默认保留 security 与第三方源 |
+| Conda / Mamba / Micromamba | 用户级 `~/.condarc` | MirrorZ / CERNET Anaconda | 保留频道、顺序、优先级、私有源与无关字段 |
 
-当前版本支持 macOS 与 Linux 的 amd64、arm64。Windows、DNF、Pacman、Conda、Docker CE、Rustup 与 Kubernetes 尚未支持。
+当前版本支持 macOS 与 Linux 的 amd64、arm64。Windows、DNF、Pacman、Docker CE、Rustup 与 Kubernetes 尚未支持。
 
 ## 安全不是附加项
 
@@ -102,6 +103,7 @@ omm restore
 - **原子写入。** 用户文件通过同目录临时文件和原子重命名更新；系统文件只通过受限参数调用 `sudo install`。
 - **限制目标。** 默认只接受无凭据 HTTPS 地址，并拒绝显式私有、回环和链路本地端点。
 - **失败回滚。** 配置验证或网络验证失败后，已应用的文件按逆序恢复。
+- **写入前预检。** 每种生态都使用真实协议入口验证本次选择，目标不可达时不会修改配置。
 - **保留安全更新。** Ubuntu/Debian security 源默认不切换，减少镜像同步延迟带来的风险。
 
 事务记录位于 `$XDG_STATE_HOME/oh-my-mirrorz`；未设置时使用 `~/.local/state/oh-my-mirrorz`。
@@ -114,7 +116,27 @@ omm restore
 | `fixed` | 只使用指定站点；不支持该生态时直接失败 | `omm switch --strategy fixed --mirror tuna` |
 | `prefer` | 优先指定站点，不可用时回退到 `auto` | `omm switch --prefer ustc` |
 
-用 `omm mirrors` 查看内置站点，用 `omm benchmark` 检查当前网络下的端点可达性与延迟。
+用 `omm mirrors` 查看内置站点。`auto` 默认保留 MirrorZ 的动态择优能力；它综合仓库能力、站点状态、同步新鲜度和网络信息，但不等同于本机实时带宽测速。
+
+## 透明测速，不自动改源
+
+`benchmark` 使用所有适配器共用的测速引擎，比较每个仓库能力下的 `auto` 与固定候选源：
+
+```bash
+omm benchmark
+omm benchmark --adapter pypi
+omm benchmark --adapter conda --runs 3
+```
+
+结果会显示候选源、MirrorZ 当前实际落点、成功次数、响应延迟中位数，以及该次探测中的最低延迟源。这里的 `fastest (sample)` 只表示本轮低成本请求的响应延迟最低，不承诺完整包下载速度，也不会自动修改配置。
+
+如果希望固定某个结果，可显式执行：
+
+```bash
+omm switch --only conda --strategy fixed --mirror ustc
+```
+
+APT 使用有序 mirrorlist 保留多站点回退，因此只报告健康状态，不把一次测速结果标记为固定“最快源”。
 
 ## 常用命令
 
@@ -124,9 +146,10 @@ omm restore
 | `omm switch --dry-run` | 展示完整换源计划，不写文件 |
 | `omm switch` | 交互确认后应用用户级配置 |
 | `omm switch --only pip,npm,cargo` | 只处理指定适配器 |
+| `omm switch --only conda` | 只切换 Conda/Mamba/Micromamba 的公开频道镜像 |
 | `omm switch --exclude homebrew` | 排除指定适配器 |
 | `omm mirrors --adapter cargo` | 查看指定生态的内置镜像 |
-| `omm benchmark` | 探测自动策略端点 |
+| `omm benchmark [--adapter NAME] [--runs N]` | 比较同一仓库能力的全部候选源 |
 | `omm history` | 查看本机事务历史 |
 | `omm restore [snapshot-id]` | 恢复最近或指定快照 |
 | `omm doctor` | 检查无效配置和未完成事务 |
@@ -143,6 +166,18 @@ omm switch --system
 
 只有真正写入系统文件时才会请求 `sudo`。如确有需要，可追加 `--include-security` 切换 security 源；这一选项必须与 `--system` 同时使用。
 
+### Conda、Mamba 与 Micromamba
+
+三者统一归一化为 `conda` 适配器。工具只管理 `~/.condarc` 中正在使用的公开镜像字段：
+
+- 保留现有 `channels` 内容和顺序；
+- 保留 `channel_priority`、代理、SSL、缓存目录等无关配置；
+- 保留未知或私有 `custom_channels`，不输出凭据；
+- 不在 `defaults`、`conda-forge` 与 `nodefaults` 之间擅自转换；
+- 发现环境变量或另一份 Conda/Mamba 配置会覆盖频道时停止操作并指出冲突。
+
+切换前和写入后都会读取当前系统对应的 `repodata.json`，例如 Apple Silicon 使用 `osx-arm64`，不会下载软件包或清理 Conda 缓存。
+
 ## 从源码构建
 
 需要 Go 1.26 或更新版本：
@@ -157,6 +192,7 @@ go build -trimpath -o omm ./cmd/omm
 | 内容 | 入口 |
 | --- | --- |
 | 设计、安全边界与恢复模型 | [`docs/superpowers/specs/2026-09-03-oh-my-mirrorz-design.md`](docs/superpowers/specs/2026-09-03-oh-my-mirrorz-design.md) |
+| Conda 与统一测速设计 | [`docs/superpowers/specs/2026-09-04-conda-and-unified-benchmark-design.md`](docs/superpowers/specs/2026-09-04-conda-and-unified-benchmark-design.md) |
 | 一键安装脚本 | [`install.sh`](install.sh) |
 | 发布记录 | [`CHANGELOG.md`](CHANGELOG.md) |
 | 参与贡献 | [`CONTRIBUTING.md`](CONTRIBUTING.md) |

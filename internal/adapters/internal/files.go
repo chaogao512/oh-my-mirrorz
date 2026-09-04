@@ -70,7 +70,7 @@ func VerifyEndpoint(client *http.Client, endpoint string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "oh-my-mirrorz/0.1")
+	req.Header.Set("User-Agent", "oh-my-mirrorz/0.2")
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
@@ -83,7 +83,7 @@ func VerifyEndpoint(client *http.Client, endpoint string) error {
 			return err
 		}
 		req.Header.Set("Range", "bytes=0-0")
-		req.Header.Set("User-Agent", "oh-my-mirrorz/0.1")
+		req.Header.Set("User-Agent", "oh-my-mirrorz/0.2")
 		resp, err = client.Do(req)
 		if err != nil {
 			return err

@@ -74,7 +74,7 @@ omm restore
 
 ## Why this exists
 
-Editing pip, npm, Cargo, Homebrew, or APT configuration is easy in isolation. The hard part is knowing which file actually wins, which fields must remain untouched, and how to recover reliably after a partial failure.
+Editing pip, npm, Cargo, Homebrew, APT, or Conda configuration is easy in isolation. The hard part is knowing which file actually wins, which fields must remain untouched, and how to recover reliably after a partial failure.
 
 `oh-my-mirrorz` treats mirror switching as a reviewable transaction: discover the active environment, resolve a valid endpoint per ecosystem, print the planned writes, snapshot the originals, apply atomically, and verify. If any adapter fails, completed changes roll back in reverse order.
 
@@ -91,8 +91,9 @@ Editing pip, npm, Cargo, Homebrew, or APT configuration is easy in isolation. Th
 | Cargo | User | MirrorZ / CERNET sparse index | Refuses to override project-level or custom `replace-with` rules |
 | Homebrew | User `brew.env` | MirrorZ / CERNET API, bottles, and build-time PyPI | Never changes Brew/Core Git remotes |
 | APT | Debian / Ubuntu system | MirrorZ APT mirrorlist | Explicit `--system` opt-in; security and third-party sources stay unchanged by default |
+| Conda / Mamba / Micromamba | User `~/.condarc` | MirrorZ / CERNET Anaconda | Preserves channels, order, priority, private sources, and unrelated keys |
 
-The current release supports macOS and Linux on amd64 and arm64. Windows, DNF, Pacman, Conda, Docker CE, Rustup, and Kubernetes are not supported yet.
+The current release supports macOS and Linux on amd64 and arm64. Windows, DNF, Pacman, Docker CE, Rustup, and Kubernetes are not supported yet.
 
 ## Safety is the product
 
@@ -102,6 +103,7 @@ The current release supports macOS and Linux on amd64 and arm64. Windows, DNF, P
 - **Atomic writes.** User files use same-directory temporary files and atomic rename. System writes use narrowly constrained `sudo install` arguments.
 - **Constrained targets.** Credential-free HTTPS is required by default; explicit private, loopback, and link-local endpoints are rejected.
 - **Rollback on failure.** Configuration or connectivity verification failure restores completed changes in reverse order.
+- **Preflight before writes.** Every ecosystem probes a real protocol endpoint for the selected source; an unreachable target leaves configuration untouched.
 - **Security repositories stay timely.** Debian and Ubuntu security sources are preserved by default.
 
 Transactions live in `$XDG_STATE_HOME/oh-my-mirrorz`, or `~/.local/state/oh-my-mirrorz` when the variable is unset.
@@ -114,7 +116,27 @@ Transactions live in `$XDG_STATE_HOME/oh-my-mirrorz`, or `~/.local/state/oh-my-m
 | `fixed` | Requires one named site; fails instead of guessing unsupported URLs | `omm switch --strategy fixed --mirror tuna` |
 | `prefer` | Tries one named site, then falls back to `auto` | `omm switch --prefer ustc` |
 
-Use `omm mirrors` to inspect the built-in catalog and `omm benchmark` to probe automatic endpoints from the current network.
+Use `omm mirrors` to inspect the built-in catalog. The default `auto` strategy preserves MirrorZ's dynamic selection based on repository capability, site status, freshness, and network information; it is not a live bandwidth guarantee for this machine.
+
+## Transparent benchmarking without automatic changes
+
+`benchmark` uses one shared engine across every adapter and compares `auto` with fixed candidates for each repository capability:
+
+```bash
+omm benchmark
+omm benchmark --adapter pypi
+omm benchmark --adapter conda --runs 3
+```
+
+The report includes the candidate, MirrorZ's observed final target, success count, median response latency, and the lowest-latency candidate in that run. `fastest (sample)` describes only the lightweight requests made now; it does not promise full-package throughput and never changes configuration.
+
+To pin a result, choose it explicitly:
+
+```bash
+omm switch --only conda --strategy fixed --mirror ustc
+```
+
+APT retains an ordered mirrorlist with multi-site failover, so it reports health without labeling one site as a permanent winner.
 
 ## Command reference
 
@@ -124,9 +146,10 @@ Use `omm mirrors` to inspect the built-in catalog and `omm benchmark` to probe a
 | `omm switch --dry-run` | Print the complete plan without writing |
 | `omm switch` | Apply user-level configuration after confirmation |
 | `omm switch --only pip,npm,cargo` | Limit the transaction to selected adapters |
+| `omm switch --only conda` | Switch public Conda/Mamba/Micromamba channel mirrors only |
 | `omm switch --exclude homebrew` | Exclude selected adapters |
 | `omm mirrors --adapter cargo` | Show built-in mirrors for one ecosystem |
-| `omm benchmark` | Probe automatic strategy endpoints |
+| `omm benchmark [--adapter NAME] [--runs N]` | Compare all candidates for each repository capability |
 | `omm history` | List local transaction history |
 | `omm restore [snapshot-id]` | Restore the latest or a selected snapshot |
 | `omm doctor` | Check invalid configuration and unfinished transactions |
@@ -143,6 +166,18 @@ omm switch --system
 
 `sudo` is requested only when a system file is actually written. Add `--include-security` only when you intentionally want to switch security repositories; it requires `--system`.
 
+### Conda, Mamba, and Micromamba
+
+All three names normalize to the `conda` adapter. It manages only active public mirror fields in `~/.condarc`:
+
+- existing `channels` and their order are preserved;
+- `channel_priority`, proxy, SSL, cache, and other unrelated settings are preserved;
+- unknown or private `custom_channels` remain untouched and credentials are never printed;
+- it never silently converts between `defaults`, `conda-forge`, and `nodefaults`;
+- it stops and identifies the conflict when environment variables or another Conda/Mamba config would override channel settings.
+
+Preflight and post-write verification read the platform-specific `repodata.json`—for example, `osx-arm64` on Apple Silicon. They neither download packages nor clear Conda caches.
+
 ## Build from source
 
 Go 1.26 or newer is required:
@@ -157,6 +192,7 @@ go build -trimpath -o omm ./cmd/omm
 | Topic | Entry point |
 | --- | --- |
 | Design, safety boundaries, and recovery model | [`docs/superpowers/specs/2026-09-03-oh-my-mirrorz-design.md`](docs/superpowers/specs/2026-09-03-oh-my-mirrorz-design.md) |
+| Conda and unified benchmark design | [`docs/superpowers/specs/2026-09-04-conda-and-unified-benchmark-design.md`](docs/superpowers/specs/2026-09-04-conda-and-unified-benchmark-design.md) |
 | One-line installer | [`install.sh`](install.sh) |
 | Release history | [`CHANGELOG.md`](CHANGELOG.md) |
 | Contributing | [`CONTRIBUTING.md`](CONTRIBUTING.md) |

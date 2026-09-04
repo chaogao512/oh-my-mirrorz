@@ -1,10 +1,6 @@
 package main
 
-import (
-	"testing"
-
-	"github.com/chaogao512/oh-my-mirrorz/internal/model"
-)
+import "testing"
 
 func TestSplitList(t *testing.T) {
 	got := splitList(" pip, npm ,,cargo ")
@@ -13,28 +9,15 @@ func TestSplitList(t *testing.T) {
 	}
 }
 
-func TestSelectionURLsAreStable(t *testing.T) {
-	selection := model.Selection{Endpoint: "https://one.example", Endpoints: map[string]string{"z": "https://z.example", "a": "https://a.example"}}
-	got := selectionURLs(selection)
-	if len(got) != 3 || got[1] != "https://a.example" || got[2] != "https://z.example" {
-		t.Fatalf("unexpected URLs: %#v", got)
-	}
-}
-
-func TestBenchmarkURLsUseProtocolEntryPoints(t *testing.T) {
-	pypi := benchmarkURLs("pypi", model.Selection{Endpoint: "https://mirror.example/simple/"})
-	if len(pypi) != 1 || pypi[0] != "https://mirror.example/simple/pip/" {
-		t.Fatalf("unexpected PyPI probe: %#v", pypi)
-	}
-	homebrew := benchmarkURLs("homebrew", model.Selection{Endpoints: map[string]string{"api": "https://mirror.example/api", "bottles": "https://mirror.example/bottles"}})
-	if len(homebrew) != 1 || homebrew[0] != "https://mirror.example/api/formula.jws.json" {
-		t.Fatalf("unexpected Homebrew probe: %#v", homebrew)
+func TestFinalTargetShowsRedirectHost(t *testing.T) {
+	if got := finalTarget("https://mirrors.ustc.edu.cn/pypi/web/simple/pip/"); got != "mirrors.ustc.edu.cn" {
+		t.Fatalf("got %q", got)
 	}
 }
 
 func TestNormalizeAdapterAliases(t *testing.T) {
-	got := normalizeAdapterList([]string{"pip", "uv", "brew", "npm"})
-	want := []string{"pypi", "homebrew", "npm"}
+	got := normalizeAdapterList([]string{"pip", "uv", "brew", "npm", "mamba", "micromamba"})
+	want := []string{"pypi", "homebrew", "npm", "conda"}
 	if len(got) != len(want) {
 		t.Fatalf("got %#v", got)
 	}

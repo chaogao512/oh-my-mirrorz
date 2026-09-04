@@ -226,6 +226,37 @@ func (a *Adapter) Plan(_ context.Context, env model.Environment, selection model
 	return changes, nil
 }
 
+func (a *Adapter) ProbeTargets(env model.Environment, selection model.Selection) ([]model.ProbeTarget, error) {
+	distro := "ubuntu"
+	if env.IncludeSystem {
+		value, err := osRelease(env)
+		if err != nil {
+			return nil, err
+		}
+		distro = value
+	}
+	main, err := aptEndpoint(selection, distro, false)
+	if err != nil {
+		return nil, err
+	}
+	ports, err := aptEndpoint(selection, distro, true)
+	if err != nil {
+		return nil, err
+	}
+	targets := []model.ProbeTarget{
+		{Capability: distro + "-main", URL: strings.TrimPrefix(main, "mirror+"), Rankable: false},
+		{Capability: distro + "-ports", URL: strings.TrimPrefix(ports, "mirror+"), Rankable: false},
+	}
+	if env.IncludeSecurity {
+		security, err := aptSecurityEndpoint(selection, distro)
+		if err != nil {
+			return nil, err
+		}
+		targets = append(targets, model.ProbeTarget{Capability: distro + "-security", URL: strings.TrimPrefix(security, "mirror+"), Rankable: false})
+	}
+	return targets, nil
+}
+
 func validate(path string, b []byte) error {
 	if strings.HasSuffix(path, ".sources") {
 		_, err := rewriteDEB822(b, "ubuntu", "https://invalid.example", "https://invalid.example", "https://invalid.example", true)

@@ -7,6 +7,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/chaogao512/oh-my-mirrorz/internal/adapters"
 	"github.com/chaogao512/oh-my-mirrorz/internal/model"
@@ -38,6 +39,7 @@ type SwitchOptions struct {
 type Plan struct {
 	Detections []model.Detection
 	Selections map[string]model.Selection
+	Probes     map[string][]resolver.ProbeResult
 	Changes    []model.Change
 	Adapters   []adapters.Adapter
 }
@@ -79,7 +81,7 @@ func (a *App) Prepare(ctx context.Context, options SwitchOptions) (Plan, error) 
 	for _, detection := range detections {
 		detectionByID[detection.AdapterID] = detection
 	}
-	plan := Plan{Detections: detections, Selections: map[string]model.Selection{}}
+	plan := Plan{Detections: detections, Selections: map[string]model.Selection{}, Probes: map[string][]resolver.ProbeResult{}}
 	for _, adapter := range selected {
 		detection := detectionByID[adapter.ID()]
 		switch detection.Status {
@@ -99,9 +101,20 @@ func (a *App) Prepare(ctx context.Context, options SwitchOptions) (Plan, error) 
 			return Plan{}, fmt.Errorf("resolve %s: %w", adapter.ID(), err)
 		}
 		if a.Prober != nil {
-			if err := probeSelection(ctx, a.Prober, selection); err != nil {
-				return Plan{}, fmt.Errorf("probe %s: %w", adapter.ID(), err)
+			results, probeErr := probeSelection(ctx, a.Prober, adapter, a.Env, selection)
+			if probeErr != nil && options.Strategy == model.StrategyPrefer && selection.Mirror != "auto" {
+				preferred := selection.Mirror
+				selection, err = a.Resolver.Resolve(adapter.ID(), model.StrategyAuto, "")
+				if err == nil {
+					selection.Strategy = model.StrategyPrefer
+					selection.Reason = fmt.Sprintf("preferred mirror %q failed preflight; %s", preferred, selection.Reason)
+					results, probeErr = probeSelection(ctx, a.Prober, adapter, a.Env, selection)
+				}
 			}
+			if probeErr != nil {
+				return Plan{}, fmt.Errorf("probe %s: %w", adapter.ID(), probeErr)
+			}
+			plan.Probes[adapter.ID()] = results
 		}
 		changes, err := adapter.Plan(ctx, a.Env, selection)
 		if err != nil {
@@ -178,6 +191,9 @@ func (a *App) PrintPlan(plan Plan) {
 	for _, id := range ids {
 		selection := plan.Selections[id]
 		fmt.Fprintf(a.output(), "  target %-10s mirror=%s  %s\n", id, selection.Mirror, selectionFields(id, selection, a.Env.IncludeSecurity))
+		for _, probe := range plan.Probes[id] {
+			fmt.Fprintf(a.output(), "  route  %-10s %s  %s\n", id, safeurl.Redact(probe.FinalURL), probe.Latency.Round(time.Millisecond))
+		}
 	}
 	if a.Env.IncludeSecurity {
 		if _, ok := plan.Selections["apt"]; ok {
@@ -215,6 +231,8 @@ func selectionFields(adapterID string, selection model.Selection, includeSecurit
 			text += "; security -> " + endpoint("debian-security", "ubuntu")
 		}
 		return text
+	case "conda":
+		return "public channels -> " + endpoint("anaconda")
 	default:
 		return "endpoint -> " + endpoint()
 	}
@@ -303,23 +321,18 @@ func (a *App) validateIDs(ids []string) (map[string]bool, error) {
 	return result, nil
 }
 
-func probeSelection(ctx context.Context, prober resolver.Prober, selection model.Selection) error {
-	var endpoints []string
-	if selection.Endpoint != "" {
-		endpoints = append(endpoints, selection.Endpoint)
+func probeSelection(ctx context.Context, prober resolver.Prober, adapter adapters.Adapter, env model.Environment, selection model.Selection) ([]resolver.ProbeResult, error) {
+	targets, err := adapter.ProbeTargets(env, selection)
+	if err != nil {
+		return nil, err
 	}
-	keys := make([]string, 0, len(selection.Endpoints))
-	for key := range selection.Endpoints {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		endpoints = append(endpoints, selection.Endpoints[key])
-	}
-	for _, endpoint := range endpoints {
-		if _, err := prober.Probe(ctx, endpoint); err != nil {
-			return err
+	results := make([]resolver.ProbeResult, 0, len(targets))
+	for _, target := range targets {
+		result, err := prober.Probe(ctx, target.URL)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", target.Capability, err)
 		}
+		results = append(results, result)
 	}
-	return nil
+	return results, nil
 }
