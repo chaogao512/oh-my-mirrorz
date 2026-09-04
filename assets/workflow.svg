@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="430" viewBox="0 0 1600 430" role="img" aria-labelledby="title desc">
+  <title id="title">oh-my-mirrorz safety workflow</title>
+  <desc id="desc">Five connected stages: scan, resolve, preview, apply and verify or restore.</desc>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f6f9ff"/><stop offset="1" stop-color="#eef1ff"/></linearGradient><linearGradient id="accent"><stop stop-color="#18bce3"/><stop offset="1" stop-color="#7657dc"/></linearGradient></defs>
+  <rect width="1600" height="430" rx="30" fill="url(#bg)"/>
+  <text x="800" y="62" text-anchor="middle" fill="#172849" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="30" font-weight="740">从扫描到恢复，每一步都可见</text>
+  <text x="800" y="96" text-anchor="middle" fill="#637493" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="18">A visible, transactional workflow from discovery to recovery</text>
+  <path d="M255 220H1345" stroke="#b7c3dd" stroke-width="5" stroke-linecap="round"/>
+  <g font-family="Inter, ui-sans-serif, system-ui, sans-serif" text-anchor="middle">
+    <g transform="translate(210 220)"><circle r="65" fill="#fff" stroke="#27c3e7" stroke-width="4"/><text y="-4" fill="#15294b" font-size="22" font-weight="720">扫描</text><text y="24" fill="#71809c" font-size="15">SCAN</text><text y="110" fill="#536582" font-size="16">只读识别配置</text></g>
+    <g transform="translate(505 220)"><circle r="65" fill="#fff" stroke="#3eafe5" stroke-width="4"/><text y="-4" fill="#15294b" font-size="22" font-weight="720">选择</text><text y="24" fill="#71809c" font-size="15">RESOLVE</text><text y="110" fill="#536582" font-size="16">匹配可用镜像</text></g>
+    <g transform="translate(800 220)"><circle r="72" fill="#142b55" stroke="url(#accent)" stroke-width="6"/><text y="-5" fill="#fff" font-size="23" font-weight="760">预览</text><text y="25" fill="#89e8ff" font-size="15">DRY RUN</text><text y="117" fill="#536582" font-size="16">写入前展示计划</text></g>
+    <g transform="translate(1095 220)"><circle r="65" fill="#fff" stroke="#686fdd" stroke-width="4"/><text y="-4" fill="#15294b" font-size="22" font-weight="720">应用</text><text y="24" fill="#71809c" font-size="15">APPLY</text><text y="110" fill="#536582" font-size="16">快照与原子写入</text></g>
+    <g transform="translate(1390 220)"><circle r="65" fill="#fff" stroke="#8a60df" stroke-width="4"/><text y="-4" fill="#15294b" font-size="22" font-weight="720">验证</text><text y="24" fill="#71809c" font-size="15">VERIFY</text><text y="110" fill="#536582" font-size="16">失败自动回滚</text></g>
+  </g>
+</svg>

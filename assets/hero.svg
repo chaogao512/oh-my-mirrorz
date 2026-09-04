@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="680" viewBox="0 0 1600 680" role="img" aria-labelledby="title desc">
+  <title id="title">oh-my-mirrorz</title>
+  <desc id="desc">A dark gradient hero showing a safe mirror switch plan across five package ecosystems.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#06142f"/><stop offset=".52" stop-color="#10285b"/><stop offset="1" stop-color="#291449"/></linearGradient>
+    <linearGradient id="line" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#35dbff"/><stop offset="1" stop-color="#9f7cff"/></linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="28"/></filter>
+    <filter id="shadow"><feDropShadow dx="0" dy="12" stdDeviation="18" flood-opacity=".28"/></filter>
+  </defs>
+  <rect width="1600" height="680" rx="36" fill="url(#bg)"/>
+  <circle cx="1370" cy="95" r="210" fill="#794fe2" opacity=".2" filter="url(#blur)"/>
+  <circle cx="160" cy="580" r="230" fill="#10cbea" opacity=".13" filter="url(#blur)"/>
+  <g opacity=".17" stroke="#7adfff"><path d="M0 136h1600M0 272h1600M0 408h1600M0 544h1600"/><path d="M200 0v680M400 0v680M600 0v680M800 0v680M1000 0v680M1200 0v680M1400 0v680"/></g>
+  <g transform="translate(92 82)">
+    <rect width="745" height="510" rx="30" fill="#07162f" stroke="#3d5d96" filter="url(#shadow)"/>
+    <circle cx="34" cy="34" r="7" fill="#ff6b6b"/><circle cx="58" cy="34" r="7" fill="#ffd166"/><circle cx="82" cy="34" r="7" fill="#49d17d"/>
+    <text x="116" y="42" fill="#7890bd" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">omm switch --dry-run</text>
+    <text x="34" y="104" fill="#57ddff" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20">PLAN</text>
+    <text x="124" y="104" fill="#e6edff" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20">5 ecosystems · 0 files changed</text>
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="20">
+      <text x="34" y="166" fill="#a8bbdf">pip / uv</text><text x="198" y="166" fill="#58dfa8">READY</text><text x="334" y="166" fill="#dce7ff">MirrorZ</text>
+      <text x="34" y="220" fill="#a8bbdf">npm</text><text x="198" y="220" fill="#58dfa8">READY</text><text x="334" y="220" fill="#dce7ff">npmmirror</text>
+      <text x="34" y="274" fill="#a8bbdf">Cargo</text><text x="198" y="274" fill="#58dfa8">READY</text><text x="334" y="274" fill="#dce7ff">sparse index</text>
+      <text x="34" y="328" fill="#a8bbdf">Homebrew</text><text x="198" y="328" fill="#58dfa8">READY</text><text x="334" y="328" fill="#dce7ff">API + bottles</text>
+      <text x="34" y="382" fill="#a8bbdf">APT</text><text x="198" y="382" fill="#ffd166">OPT-IN</text><text x="334" y="382" fill="#dce7ff">--system</text>
+    </g>
+    <path d="M34 424h675" stroke="#29446f"/>
+    <text x="34" y="468" fill="#9eb2d8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="18">snapshot → apply → verify → rollback on failure</text>
+  </g>
+  <g transform="translate(906 126)">
+    <rect x="0" y="0" width="86" height="32" rx="16" fill="#153e63" stroke="#41d9ff"/>
+    <text x="43" y="22" text-anchor="middle" fill="#79e7ff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="15" font-weight="700">SAFE CLI</text>
+    <text x="0" y="112" fill="#ffffff" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="70" font-weight="780">oh-my-</text>
+    <text x="0" y="184" fill="url(#line)" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="70" font-weight="780">mirrorz</text>
+    <text x="3" y="244" fill="#dce7ff" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="28" font-weight="600">一键换源，也能一键恢复。</text>
+    <text x="3" y="285" fill="#96abd5" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="23">Preview every change. Restore with confidence.</text>
+    <rect x="0" y="338" width="580" height="76" rx="17" fill="#09152d" stroke="#476697"/>
+    <text x="28" y="386" fill="#78e6ff" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="22">brew install chaogao512/tap/oh-my-mirrorz</text>
+  </g>
+</svg>

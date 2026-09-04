@@ -1,104 +1,147 @@
-# oh-my-mirrorz
+<p align="center">
+  <img src="assets/hero.svg" alt="oh-my-mirrorz：安全、可预览、可恢复的一键换源工具" width="100%">
+</p>
 
-一个安全、可预览、可恢复的 macOS/Linux 一键换源工具。
+<h1 align="center">oh-my-mirrorz</h1>
 
-`oh-my-mirrorz` 会扫描本机已安装的软件生态，为每个生态选择合适的镜像，在写入前展示计划并保存快照；配置或网络验证失败时，会自动恢复原状。
+<p align="center">
+  <strong>一次扫描，统一换源；每次修改，都能恢复。</strong><br>
+  面向 macOS 与 Linux 的安全镜像源管理器。
+</p>
 
-> 本项目是独立社区项目，不是 MirrorZ、CERNET 或任何镜像站的官方客户端，也不代表其认可或背书。
+<p align="center">
+  <a href="https://github.com/chaogao512/oh-my-mirrorz/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/chaogao512/oh-my-mirrorz/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/chaogao512/oh-my-mirrorz/releases/latest"><img alt="Latest Release" src="https://img.shields.io/github/v/release/chaogao512/oh-my-mirrorz?color=6f5bd3"></a>
+  <a href="https://github.com/chaogao512/oh-my-mirrorz/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-23b5d3"></a>
+  <img alt="Platforms" src="https://img.shields.io/badge/macOS%20%7C%20Linux-amd64%20%7C%20arm64-17294d">
+</p>
 
-[English](README.en.md)
+<p align="center">
+  简体中文 · <a href="README.en.md">English</a>
+</p>
 
-## 当前支持
-
-| 生态 | 配置范围 | 默认策略 | 重要保护 |
-| --- | --- | --- | --- |
-| pip / uv | 用户级 | MirrorZ/CERNET | 保留其他字段，不改项目配置 |
-| npm | 用户级 | npmmirror | 不改 scope registry 和认证字段 |
-| Cargo | 用户级 | MirrorZ/CERNET sparse index | 不覆盖已有自定义 `replace-with` |
-| Homebrew API / bottles / 构建用 PyPI | 用户级 `brew.env` | MirrorZ/CERNET | 只维护带标记的配置块，不改 Git remote |
-| APT（Debian/Ubuntu） | 系统级，需 `--system` | MirrorZ APT mirrorlist | 保留第三方源，默认保留 security 源 |
-
-V0.1.0 支持 macOS 与 Linux 的 amd64、arm64。Windows、DNF、Pacman、Conda、Docker CE、Rustup 和 Kubernetes 暂不支持。
+> [!NOTE]
+> `oh-my-mirrorz` 是独立社区项目，不是 MirrorZ、CERNET 或任何镜像站的官方客户端，也不代表其认可或背书。
 
 ## 安装
 
-从 GitHub Release 下载对应系统的压缩包，校验 `checksums.txt` 后，将 `omm` 放入 `PATH`。
+### Homebrew（macOS 推荐）
 
-也可以使用安装脚本（安装到 `~/.local/bin`，下载后仍会校验 SHA-256）：
+```bash
+brew install chaogao512/tap/oh-my-mirrorz
+```
+
+安装后可直接运行 `omm`，不需要修改 `.zshrc`，后续使用 `brew upgrade oh-my-mirrorz` 即可升级。Formula 由独立的 [`chaogao512/homebrew-tap`](https://github.com/chaogao512/homebrew-tap) 维护。
+
+### 一键安装脚本（macOS / Linux）
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chaogao512/oh-my-mirrorz/main/install.sh | sh
 ```
 
-安装器不会覆盖已有的第三方 `omm` 命令；发生重名时只安装 `oh-my-mirrorz`。
+脚本会识别系统与架构、下载对应 Release，并在安装前校验 SHA-256。默认安装到 `~/.local/bin`；如果已存在第三方 `omm`，则改用 `oh-my-mirrorz`，不会静默覆盖。
 
-## 使用
+也可以从 [GitHub Releases](https://github.com/chaogao512/oh-my-mirrorz/releases/latest) 手动下载 macOS/Linux 的 amd64 或 arm64 压缩包。
 
-先只读扫描：
+## 30 秒开始使用
+
+先扫描本机，不修改任何文件：
 
 ```bash
 omm scan
 ```
 
-预览全部用户级变更：
+预览即将发生的全部用户级变更：
 
 ```bash
 omm switch --dry-run
 ```
 
-确认后执行：
+确认计划后执行：
 
 ```bash
 omm switch
 ```
 
-常用选项：
+需要恢复时：
 
 ```bash
-omm switch --only pip,npm,cargo
-omm switch --exclude homebrew
-omm switch --strategy fixed --mirror tuna
-omm switch --prefer ustc
-omm switch --system
-omm switch --system --include-security
-```
-
-系统级 APT 只有显式加入 `--system` 才会进入计划；真正写入目标文件时才调用 `sudo`，扫描过程仍以当前用户运行。默认不替换 Ubuntu/Debian 的 security 源，因为镜像同步延迟可能影响安全更新及时性。
-
-检查、测速与恢复：
-
-```bash
-omm mirrors
-omm benchmark
 omm history
 omm restore
-omm restore <snapshot-id>
-omm doctor
 ```
 
-无参数 `restore` 恢复最近一次可恢复事务。恢复前会保存当前状态，因此恢复操作本身也可以撤销；若目标已经处于快照状态，则明确报告无需改动。
+无参数 `restore` 会恢复最近一次可恢复事务；也可以使用 `omm restore <snapshot-id>` 选择历史快照。
 
-## 安全模型
+## 为什么做这个工具
 
-- `--dry-run` 不创建快照、不写文件。
-- 每次写入前再次核对原内容 SHA-256，避免覆盖计划生成后的外部修改。
-- 用户级文件使用同目录临时文件、同步落盘和原子重命名。
-- 系统级文件使用受限参数调用 `sudo install` 与原子重命名，不执行拼接的 Shell 命令。
-- 快照目录权限为 `0700`，快照与事务清单权限为 `0600`。
-- 默认只接受无凭据 HTTPS URL，并拒绝显式私有、回环和链路本地地址。
-- APT 仅改写识别出的 Debian/Ubuntu 官方仓库；PPA、Docker 等第三方条目保持原样。
-- V0.1 不设置 Homebrew 的 Brew/Core Git remote，避免用户运行 `brew update` 后出现无法由普通配置快照完整恢复的隐藏状态变化。
-- 任一适配器在配置或网络验证中失败，已应用的变更会按逆序回滚。
+单独修改 pip、npm、Cargo、Homebrew 和 APT 并不难，难的是知道哪些配置真正生效、哪些字段不该碰，以及失败后如何可靠回到原状。
 
-事务记录位于 `$XDG_STATE_HOME/oh-my-mirrorz`，未设置时使用 `~/.local/state/oh-my-mirrorz`。
+`oh-my-mirrorz` 把换源变成一个可审查的事务：扫描当前环境，为每个软件生态选择合法入口，展示写入计划，保存原始快照，再应用并验证。任何适配器失败，已执行的变更都会按逆序回滚。
 
-## 镜像策略
+<p align="center">
+  <img src="assets/workflow.svg" alt="扫描、选择、预览、应用、验证与恢复工作流" width="100%">
+</p>
 
-- `auto`：使用内置、按仓库验证的 MirrorZ/CERNET 或明确登记的生态镜像入口；APT 使用 `mirror+https` 保留客户端回退能力。
-- `fixed`：使用指定的内置站点，如 `tuna`、`ustc` 或 `npmmirror`；站点不提供相应生态时直接失败，不猜测 URL。
-- `prefer`：优先指定站点；该生态不可用时回退到 `auto`，并记录选择理由。
+## 当前支持
 
-用 `omm mirrors` 查看每个适配器当前内置的站点。
+| 生态 | 配置范围 | 自动策略 | 保护边界 |
+| --- | --- | --- | --- |
+| pip / uv | 用户级 | MirrorZ / CERNET | 保留无关字段，不修改项目配置 |
+| npm | 用户级 | npmmirror | 保留 scope registry、令牌和证书字段 |
+| Cargo | 用户级 | MirrorZ / CERNET sparse index | 不覆盖项目级或已有自定义 `replace-with` |
+| Homebrew | 用户级 `brew.env` | MirrorZ / CERNET API、bottles、构建用 PyPI | 不修改 Brew/Core Git remote |
+| APT | Debian / Ubuntu 系统级 | MirrorZ APT mirrorlist | 需显式 `--system`；默认保留 security 与第三方源 |
+
+当前版本支持 macOS 与 Linux 的 amd64、arm64。Windows、DNF、Pacman、Conda、Docker CE、Rustup 与 Kubernetes 尚未支持。
+
+## 安全不是附加项
+
+- **先预览。** `--dry-run` 不创建快照，也不写入文件。
+- **先快照。** 每次写入前保存原始文件与事务清单，目录权限为 `0700`，内容权限为 `0600`。
+- **防止误覆盖。** 应用前再次核对 SHA-256；若文件在预览后被其他程序修改，操作会停止。
+- **原子写入。** 用户文件通过同目录临时文件和原子重命名更新；系统文件只通过受限参数调用 `sudo install`。
+- **限制目标。** 默认只接受无凭据 HTTPS 地址，并拒绝显式私有、回环和链路本地端点。
+- **失败回滚。** 配置验证或网络验证失败后，已应用的文件按逆序恢复。
+- **保留安全更新。** Ubuntu/Debian security 源默认不切换，减少镜像同步延迟带来的风险。
+
+事务记录位于 `$XDG_STATE_HOME/oh-my-mirrorz`；未设置时使用 `~/.local/state/oh-my-mirrorz`。
+
+## 镜像选择策略
+
+| 策略 | 行为 | 示例 |
+| --- | --- | --- |
+| `auto` | 使用该生态内置、经过约束的默认入口 | `omm switch` |
+| `fixed` | 只使用指定站点；不支持该生态时直接失败 | `omm switch --strategy fixed --mirror tuna` |
+| `prefer` | 优先指定站点，不可用时回退到 `auto` | `omm switch --prefer ustc` |
+
+用 `omm mirrors` 查看内置站点，用 `omm benchmark` 检查当前网络下的端点可达性与延迟。
+
+## 常用命令
+
+| 命令 | 作用 |
+| --- | --- |
+| `omm scan` | 只读扫描已安装生态与配置位置 |
+| `omm switch --dry-run` | 展示完整换源计划，不写文件 |
+| `omm switch` | 交互确认后应用用户级配置 |
+| `omm switch --only pip,npm,cargo` | 只处理指定适配器 |
+| `omm switch --exclude homebrew` | 排除指定适配器 |
+| `omm mirrors --adapter cargo` | 查看指定生态的内置镜像 |
+| `omm benchmark` | 探测自动策略端点 |
+| `omm history` | 查看本机事务历史 |
+| `omm restore [snapshot-id]` | 恢复最近或指定快照 |
+| `omm doctor` | 检查无效配置和未完成事务 |
+
+### Debian / Ubuntu 系统源
+
+APT 不会默认进入换源计划。需要时先预览，再显式启用系统级操作：
+
+```bash
+omm scan --system
+omm switch --system --dry-run
+omm switch --system
+```
+
+只有真正写入系统文件时才会请求 `sudo`。如确有需要，可追加 `--include-security` 切换 security 源；这一选项必须与 `--system` 同时使用。
 
 ## 从源码构建
 
@@ -109,8 +152,18 @@ go test ./...
 go build -trimpath -o omm ./cmd/omm
 ```
 
-完整设计与安全边界见 [`docs/superpowers/specs/2026-09-03-oh-my-mirrorz-design.md`](docs/superpowers/specs/2026-09-03-oh-my-mirrorz-design.md)。
+## 文档与参与
+
+| 内容 | 入口 |
+| --- | --- |
+| 设计、安全边界与恢复模型 | [`docs/superpowers/specs/2026-09-03-oh-my-mirrorz-design.md`](docs/superpowers/specs/2026-09-03-oh-my-mirrorz-design.md) |
+| 一键安装脚本 | [`install.sh`](install.sh) |
+| 发布记录 | [`CHANGELOG.md`](CHANGELOG.md) |
+| 参与贡献 | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
+| 安全问题报告 | [`SECURITY.md`](SECURITY.md) |
+
+欢迎提交问题、适配器建议和可复现的镜像兼容性报告。新增生态必须同时说明配置优先级、凭据边界、验证方式和恢复语义。
 
 ## 许可证
 
-[MIT](LICENSE)
+[MIT License](LICENSE) © 2026 Gaochao
